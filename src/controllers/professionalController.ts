@@ -1,51 +1,54 @@
 import { Request, Response } from "express";
-import Professional from "../models/professionalModel";
+import ProfessionalService from "../services/professionalService";
 
-export const getProfessionals = async (_req: Request, res: Response) => {
-  try {
-    const professionals = await Professional.find();
-    res.json(professionals);
-  } catch (error) {
-    res.status(500).json({ message: "Erro ao buscar profissionais", error });
-  }
-};
+class ProfessionalController {
+  getAll = async (req: Request, res: Response) => {
+    try {
+      const professionals = await ProfessionalService.getAll();
+      res.json(professionals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get professionals" });
+    }
+  };
 
-export const getProfessionalById = async (req: Request, res: Response) => {
-  try {
-    const professional = await Professional.findById(req.params.id);
-    if (!professional) return res.status(404).json({ message: "Profissional não encontrado" });
-    res.json(professional);
-  } catch (error) {
-    res.status(500).json({ message: "Erro ao buscar profissional", error });
-  }
-};
+  getById = async (req: Request, res: Response) => {
+    try {
+      const professional = await ProfessionalService.getById(req.params.id);
+      if (!professional) res.status(404).json({ message: "Professional not found" });
+      res.json(professional);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get professional" });
+    }
+  };
 
-export const createProfessional = async (req: Request, res: Response) => {
-  try {
-    const { name, specialty } = req.body;
-    const newProfessional = new Professional({ name, specialty });
-    await newProfessional.save();
-    res.status(201).json(newProfessional);
-  } catch (error) {
-    res.status(500).json({ message: "Erro ao criar profissional", error });
-  }
-};
+  create = async (req: Request, res: Response) => {
+    try {
+      const newProfessional = await ProfessionalService.create(req.body);
+      res.status(201).json(newProfessional);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create professional" });
+    }
+  };
 
-export const updateProfessional = async (req: Request, res: Response) => {
-  try {
-    const updatedProfessional = await Professional.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedProfessional) return res.status(404).json({ message: "Profissional não encontrado" });
-    res.json(updatedProfessional);
-  } catch (error) {
-    res.status(500).json({ message: "Erro ao atualizar profissional", error });
-  }
-};
+  update = async (req: Request, res: Response) => {
+    try {
+      const updatedProfessional = await ProfessionalService.update(req.params.id, req.body);
+      if (!updatedProfessional) res.status(404).json({ message: "Professional not found" });
+      res.json(updatedProfessional);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update professional" });
+    }
+  };
 
-export const deleteProfessional = async (req: Request, res: Response) => {
-  try {
-    await Professional.findByIdAndDelete(req.params.id);
-    res.json({ message: "Profissional deletado com sucesso" });
-  } catch (error) {
-    res.status(500).json({ message: "Erro ao deletar profissional", error });
-  }
-};
+  delete = async (req: Request, res: Response) => {
+    try {
+      const deletedProfessional = await ProfessionalService.delete(req.params.id);
+      if (!deletedProfessional) res.status(404).json({ message: "Professional not found" });
+      res.json(deletedProfessional);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete professional" });
+    }
+  };
+}
+
+export default new ProfessionalController();

@@ -1,8 +1,13 @@
-import mongoose, { mongo } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const ProfessionalSchema = new mongoose.Schema({
-  name: {type: String, require: true},
-  specialty: [String],
-})
+export interface IProfessional extends Document {
+  name: string;
+  services: mongoose.Types.ObjectId[];
+}
 
-export default mongoose.model("Professional", ProfessionalSchema)
+const ProfessionalSchema = new Schema({
+  name: { type: String, required: true },
+  services: [{ type: mongoose.Schema.Types.ObjectId, ref: "Service" }],
+});
+
+export default mongoose.model<IProfessional>("Professional", ProfessionalSchema);
