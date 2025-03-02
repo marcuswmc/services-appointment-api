@@ -8,7 +8,7 @@ export interface IAppointment extends Document {
   professionalId: mongoose.Types.ObjectId;
   date: string;
   time: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELED";
+  status: "CONFIRMED" | "CANCELED" | "FINISHED";
 }
 
 const AppointmentSchema = new Schema({
@@ -19,7 +19,7 @@ const AppointmentSchema = new Schema({
   professionalId: { type: mongoose.Schema.Types.ObjectId, ref: "Professional", required: true },
   date: { type: String, required: true },
   time: { type: String, required: true },
-  status: { type: String, enum: ["PENDING", "CONFIRMED", "CANCELED"], default: "CONFIRMED" },
+  status: { type: String, enum: ["CONFIRMED", "CANCELED", "FINISHED"], default: "CONFIRMED" },
 });
 
 export default mongoose.model<IAppointment>("Appointment", AppointmentSchema);

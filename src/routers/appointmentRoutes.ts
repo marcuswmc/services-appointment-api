@@ -5,8 +5,8 @@ import AppointmentController from "../controllers/appointmentController";
 const router = Router();
 
 router.get("/appointments", AppointmentController.getAll);
-router.get("/appointments/:id", AppointmentController.getById);
-router.post("/appointments/create", AppointmentController.create);
-router.put("/appointments/:id", AppointmentController.cancel);
+router.get("/appointment/:id", AppointmentController.getById);
+router.post("/appointment/create", AppointmentController.create);
+router.put("/appointment/:id", AppointmentController.cancel);
 
 export default router;

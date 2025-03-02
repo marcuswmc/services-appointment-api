@@ -3,6 +3,9 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import userRouter from './routers/userRouter';
+import servicesRoutes from'./routers/servicesRoutes'
+import professionalRoutes from'./routers/professionalRoutes'
+import appointmentRoutes from'./routers/appointmentRoutes'
 
 
 dotenv.config();
@@ -18,6 +21,9 @@ app.use(
 )
 app.use(express.json())
 app.use('/api', userRouter);
+app.use('/api', appointmentRoutes);
+app.use('/api', servicesRoutes);
+app.use('/api', professionalRoutes);
 
 const connectDB = async () => {
   try {
