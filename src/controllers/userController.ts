@@ -44,26 +44,38 @@ class UserController {
     }
   };
 
-  login = async (req: Request, res: Response) => {
+  login = async (req: Request, res: Response): Promise<void> => {
     try {
       const errors = validationResult(req);
-
+  
       if (!errors.isEmpty()) {
         res.status(422).json({ errors: errors.array() });
+        return;
       }
-
+  
       const { email, password } = req.body;
-      const foundUserWithToken: any = await userService.login(email, password);
-
-      if (foundUserWithToken === null) {
+      const foundUserWithToken = await userService.login(email, password);
+  
+      if (!foundUserWithToken) {
         res.status(404).json({ error: 'Invalid email or password' });
+        return;
       }
-
-     res.json(foundUserWithToken);
+  
+      const { user, accessToken } = foundUserWithToken;
+  
+      res.json({
+        user,
+        token: accessToken, // Mudando de "accessToken" para "token"
+        expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      });
     } catch (error) {
+      console.error("Login error:", error);
       res.status(500).json({ error: 'Failed to login' });
     }
   };
+  
+  
+  
 
   update = async (req: Request, res: Response) => {
     try {
