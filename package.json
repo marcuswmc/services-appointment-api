@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Sattis API",
   "main": "dist/main.js",
-  "type": "module",
   "scripts": {
     "build": "rimraf ./dist && npx tsc",
     "start": "node dist/main.js",
