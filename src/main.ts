@@ -1,5 +1,5 @@
 import express from 'express';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import userRouter from './routers/userRouter';
@@ -7,8 +7,6 @@ import servicesRoutes from'./routers/servicesRoutes'
 import professionalRoutes from'./routers/professionalRoutes'
 import appointmentRoutes from'./routers/appointmentRoutes'
 
-
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 

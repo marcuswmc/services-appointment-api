@@ -1,26 +1,8 @@
 import { Resend } from 'resend';
-import dotenv from 'dotenv';
 
-dotenv.config();
+import 'dotenv/config';
 
 const resend = new Resend("re_qqaKXqKn_DWDCrmkYcyiv3StYe1iXA1HX");
-
-
-async function testEmail() {
-  try {
-    const response = await resend.emails.send({
-      from: "Sattis Studio <onboarding@resend.dev>",
-      to: "marcus.relation@gmail.com",
-      subject: "Teste de Email",
-      text: "Este é um teste do Resend API."
-    });
-    console.log("Email enviado:", response);
-  } catch (error) {
-    console.error("Erro ao enviar email:", error);
-  }
-}
-
-testEmail();
 
 export const sendConfirmationEmail = async (
   to: string,
