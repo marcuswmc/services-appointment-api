@@ -7,6 +7,7 @@ const router = Router();
 router.get("/appointments", AppointmentController.getAll);
 router.get("/appointment/:id", AppointmentController.getById);
 router.post("/appointment/create", AppointmentController.create);
-router.put("/appointment/:id", AppointmentController.cancel);
+router.patch("/appointment/:id", AppointmentController.updateStatus);
+
 
 export default router;

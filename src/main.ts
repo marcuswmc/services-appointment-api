@@ -16,10 +16,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   })
-)
+);
 app.use(express.json())
 app.use('/api', userRouter);
 app.use('/api', appointmentRoutes);

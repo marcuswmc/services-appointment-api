@@ -32,25 +32,35 @@ class AppointmentController {
     try {
       const newAppointment = await AppointmentService.create(req.body);
       res.status(201).json(newAppointment);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create appointment" });
+    } catch (error: any) {
+      console.error("Failed to create appointment:", error);
+      res.status(500).json({ message: "Failed to create appointment", error: error.message });
     }
   };
+  
 
-  cancel = async (req: Request, res: Response) => {
+  updateStatus = async (req: Request, res: Response) => {
     try {
-      const canceledAppointment = await AppointmentService.cancel(
-        req.params.id
-      );
-      if (!canceledAppointment){
-        res.status(404).json({ message: "Appointment not found" });
+      const { status } = req.body;
+      const { id } = req.params;
+  
+      if (!["CANCELED", "FINISHED"].includes(status)) {
+         res.status(400).json({ message: "Invalid status" });
       }
-        
-      res.json(canceledAppointment);
+  
+      const updatedAppointment = await AppointmentService.updateStatus(id, status);
+  
+      if (!updatedAppointment) {
+         res.status(404).json({ message: "Appointment not found" });
+      }
+  
+      res.json(updatedAppointment);
     } catch (error) {
-      res.status(500).json({ message: "Failed to cancel appointment" });
+      res.status(500).json({ message: "Failed to update appointment status" });
     }
   };
+ 
+  
 }
 
 export default new AppointmentController();
