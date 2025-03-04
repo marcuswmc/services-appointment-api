@@ -8,33 +8,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendAdminNotificationEmail = exports.sendCancellationEmail = exports.sendConfirmationEmail = void 0;
 const resend_1 = require("resend");
-const dotenv_1 = __importDefault(require("dotenv"));
-dotenv_1.default.config();
-const resend = new resend_1.Resend(String(process.env.RESEND_API_KEY));
-console.log(`RESEND_API_KEY: [${process.env.RESEND_API_KEY}]`);
-function testEmail() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const response = yield resend.emails.send({
-                from: "Sattis Studio <onboarding@resend.dev>",
-                to: "marcus.relation@gmail.com",
-                subject: "Teste de Email",
-                text: "Este é um teste do Resend API."
-            });
-            console.log("Email enviado:", response);
-        }
-        catch (error) {
-            console.error("Erro ao enviar email:", error);
-        }
-    });
-}
-testEmail();
+require("dotenv/config");
+const resend = new resend_1.Resend("re_qqaKXqKn_DWDCrmkYcyiv3StYe1iXA1HX");
 const sendConfirmationEmail = (to, appointmentDetails) => __awaiter(void 0, void 0, void 0, function* () {
     const { date, time, serviceName, professionalName } = appointmentDetails;
     const subject = "Confirmação de Agendamento - Sattis Studio";

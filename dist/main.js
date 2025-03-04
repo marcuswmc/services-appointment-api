@@ -13,14 +13,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const dotenv_1 = __importDefault(require("dotenv"));
+require("dotenv/config");
 const cors_1 = __importDefault(require("cors"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const userRouter_1 = __importDefault(require("./routers/userRouter"));
 const servicesRoutes_1 = __importDefault(require("./routers/servicesRoutes"));
 const professionalRoutes_1 = __importDefault(require("./routers/professionalRoutes"));
 const appointmentRoutes_1 = __importDefault(require("./routers/appointmentRoutes"));
-dotenv_1.default.config();
 const PORT = process.env.PORT || 5000;
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
