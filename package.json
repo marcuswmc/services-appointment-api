@@ -2,13 +2,14 @@
   "name": "sattis-backend",
   "version": "1.0.0",
   "description": "Sattis API",
-  "main": "main.js",
+  "main": "dist/main.js",
   "type": "module",
   "scripts": {
-    "build": "rimraf ./dist && npx tsc",
-    "start": "npm run build && cross-env NODE_ENV=prod node dist/main",
-    "dev": "npx nodemon"
-  },
+  "build": "rimraf ./dist && tsc",
+  "start": "node dist/main.js",
+  "prestart": "npm run build",
+  "dev": "npx nodemon src/main.ts"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
