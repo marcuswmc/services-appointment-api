@@ -5,11 +5,11 @@
   "main": "dist/main.js",
   "type": "module",
   "scripts": {
-  "build": "rimraf ./dist && tsc",
-  "start": "node dist/main.js",
-  "prestart": "npm run build",
-  "dev": "npx nodemon src/main.ts"
-},
+    "build": "rimraf ./dist && npx tsc",
+    "start": "node dist/main.js",
+    "prestart": "npm run build",
+    "dev": "npx nodemon src/main.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
