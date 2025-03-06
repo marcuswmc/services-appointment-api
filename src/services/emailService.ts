@@ -21,14 +21,14 @@ Serviço: ${serviceName}
 Profissional: ${professionalName}`;
 
   await resend.emails.send({
-    from: "Sattis Studio <onboarding@resend.dev>",
+    from: "Sattis Studio <update@sattis.me>",
     to,
     subject,
     text,
   });
 };
 
-// Função para enviar email de cancelamento de agendamento para o cliente
+
 export const sendCancellationEmail = async (
   to: string,
   appointmentDetails: {
@@ -46,14 +46,13 @@ Serviço: ${serviceName}
 Profissional: ${professionalName}`;
 
   await resend.emails.send({
-    from: "Sattis Studio <onboarding@resend.dev>",
+    from: "Sattis Studio <update@sattis.me>",
     to,
     subject,
     text,
   });
 };
 
-// Função para enviar notificação de novo agendamento para o admin
 export const sendAdminNotificationEmail = async (
   appointmentDetails: {
     customerName: string;
@@ -76,7 +75,7 @@ Serviço: ${serviceName}
 Profissional: ${professionalName}`;
 
   await resend.emails.send({
-    from: "Sattis Studio <onboarding@resend.dev>",
+    from: "Sattis Studio <update@sattis.me>",
     to: adminEmail,
     subject,
     text,
