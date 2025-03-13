@@ -14,17 +14,17 @@ class ServiceController {
   getAvailableServices = async (req: Request, res: Response) => {
     try {
       const { date } = req.query;
-
+  
       if (!date) {
-       res.status(400).json({ error: "Date query parameter is required" });
+        res.status(400).json({ error: "Date query parameter is required" });
       }
-
+  
       const services = await ServiceService.getAllWithAvailableTimes(date as string);
       res.json(services);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch services" });
     }
-  }
+  };
   
 
   getById = async (req: Request, res: Response) => {
