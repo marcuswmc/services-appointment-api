@@ -6,6 +6,7 @@ import userRouter from './routers/userRouter';
 import servicesRoutes from'./routers/servicesRoutes'
 import professionalRoutes from'./routers/professionalRoutes'
 import appointmentRoutes from'./routers/appointmentRoutes'
+import categoryRoutes from './routers/categoryRoutes';
 
 
 const PORT = process.env.PORT || 5000;
@@ -23,6 +24,7 @@ app.use('/api', userRouter);
 app.use('/api', appointmentRoutes);
 app.use('/api', servicesRoutes);
 app.use('/api', professionalRoutes);
+app.use('/api', categoryRoutes);
 
 const connectDB = async () => {
   try {

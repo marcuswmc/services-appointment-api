@@ -59,6 +59,47 @@ class AppointmentController {
       res.status(500).json({ message: "Failed to update appointment status" });
     }
   };
+
+  cancelByToken = async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const appointment = await AppointmentService.getByCancelToken(token);
+  
+      if (!appointment) {
+        res.status(404).json({ message: "Appointment not found or already canceled" });
+      }
+  
+      // Pergunta ao usuário antes de cancelar
+      res.json({
+        message: "Are you sure you want to cancel this appointment?",
+        appointmentDetails: {
+          date: appointment?.date,
+          time: appointment?.time,
+          serviceName: (appointment?.serviceId as any).name,
+          professionalName: (appointment?.professionalId as any).name,
+        },
+        confirmCancel: `${process.env.BACKEND_URL}/appointment/cancel/confirm/${token}`,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process cancellation request" });
+    }
+  };
+  
+  confirmCancelByToken = async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const canceledAppointment = await AppointmentService.cancelByToken(token);
+  
+      if (!canceledAppointment) {
+        res.status(404).json({ message: "Appointment not found or already canceled" });
+      }
+  
+      res.json({ message: "Appointment successfully canceled" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to cancel appointment" });
+    }
+  };
+  
  
   
 }

@@ -2,43 +2,15 @@ import moment from "moment";
 import AppointmentModel from "../models/appointmentModel";
 import ServiceModel, { IService } from "../models/servicesModel";
 
+
 class ServicesService {
   getAll = async (): Promise<IService[]> => {
     return await ServiceModel.find();
   };
 
-  // getAllWithAvailableTimes = async (date: string): Promise<IService[]> => {
-  //   try {
-  //     const services: IService[] = await ServiceModel.find();
-
-  //     const updatedServices = await Promise.all(
-  //       services.map(async (service) => {
-  //         const bookedAppointments = await AppointmentModel.find({
-  //           serviceId: service._id,
-  //           date: date.trim(),
-  //         });
-
-  //         const bookedTimes = bookedAppointments.map((appt) => appt.time.trim()); // Normaliza horários
-
-  //         const availableTimes = service.availableTimes.filter(
-  //           (time) => !bookedTimes.includes(time.trim())
-  //         );
-
-  //         if (availableTimes.length === 0) return null;
-
-  //         return {
-  //           ...service.toObject(),
-  //           availableTimes,
-  //         };
-  //       })
-  //     );
-
-  //     return updatedServices.filter((service) => service !== null) as IService[];
-  //   } catch (error) {
-  //     throw new Error("Failed to get services with available times");
-  //   }
-  // }
-
+  getByCategory = async (categoryId: string): Promise<IService[]> => {
+    return await ServiceModel.find({ category: categoryId }).populate("category");
+  };
   getAllWithAvailableTimes = async (date: string): Promise<IService[]> => {
     try {
       const services: IService[] = await ServiceModel.find();

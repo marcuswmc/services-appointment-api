@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import ServiceService from "../services/servicesService";
+import CategoryModel from "../models/categoryModel";
 
 class ServiceController {
   getAll = async (req: Request, res: Response) => {
@@ -8,6 +9,16 @@ class ServiceController {
       res.json(services);
     } catch (error) {
       res.status(500).json({ message: "Failed to get services" });
+    }
+  };
+
+  getAllByCategory = async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const services = await ServiceService.getByCategory(categoryId);
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get services by category" });
     }
   };
 
@@ -39,6 +50,13 @@ class ServiceController {
 
   create = async (req: Request, res: Response) => {
     try {
+      const { category } = req.body;
+
+      const categoryExists = await CategoryModel.findById(category);
+      if (!categoryExists) {
+        res.status(400).json({ message: "Invalid category" });
+      }
+
       const newService = await ServiceService.create(req.body);
       res.status(201).json(newService);
     } catch (error) {

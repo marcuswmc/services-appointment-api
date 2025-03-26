@@ -8,10 +8,9 @@ import {
   sendCancellationEmail,
 } from "../services/emailService";
 
-
 const SALON_HOURS = [
   { start: "09:30", end: "12:30" },
-  { start: "14:30", end: "19:00" }, 
+  { start: "14:30", end: "19:00" },
 ];
 
 class AppointmentService {
@@ -20,12 +19,13 @@ class AppointmentService {
   };
 
   getById = async (id: string): Promise<IAppointment | null> => {
-    return await AppointmentModel.findById(id).populate("serviceId professionalId");
+    return await AppointmentModel.findById(id).populate(
+      "serviceId professionalId"
+    );
   };
 
   create = async (appointmentData: IAppointment): Promise<IAppointment> => {
     const { serviceId, professionalId, date, time } = appointmentData;
-
 
     const service = await ServiceModel.findById(serviceId);
     if (!service) {
@@ -55,14 +55,24 @@ class AppointmentService {
 
     const newAppointment = await AppointmentModel.create(appointmentData);
 
+    const cancelToken = new Types.ObjectId();
+    newAppointment.cancelToken = cancelToken;
+    await newAppointment.save();
+
+    const cancelLink = `https://sattis.me/cancel/${cancelToken}`;
+
     const appointmentDetails = {
       date,
       time,
       serviceName: service.name,
       professionalName: professional.name,
+      cancelLink, 
     };
 
-    await sendConfirmationEmail(appointmentData.customerEmail, appointmentDetails);
+    await sendConfirmationEmail(
+      appointmentData.customerEmail,
+      appointmentDetails
+    );
 
     await sendAdminNotificationEmail({
       customerName: appointmentData.customerName,
@@ -72,7 +82,36 @@ class AppointmentService {
     return newAppointment;
   };
 
-  updateStatus = async (id: string, status: string): Promise<IAppointment | null> => {
+  getByCancelToken = async (token: string): Promise<IAppointment | null> => {
+    return await AppointmentModel.findOne({ cancelToken: token }).populate("serviceId professionalId");
+  };
+  
+  cancelByToken = async (token: string): Promise<IAppointment | null> => {
+    const appointment = await AppointmentModel.findOneAndUpdate(
+      { cancelToken: token, status: "CONFIRMED" },
+      { status: "CANCELED" },
+      { new: true }
+    ).populate("serviceId professionalId");
+  
+    if (!appointment) return null;
+  
+    const appointmentDetails = {
+      date: appointment.date,
+      time: appointment.time,
+      serviceName: (appointment.serviceId as any).name,
+      professionalName: (appointment.professionalId as any).name,
+    };
+  
+    await sendCancellationEmail(appointment.customerEmail, appointmentDetails);
+  
+    return appointment;
+  };
+  
+
+  updateStatus = async (
+    id: string,
+    status: string
+  ): Promise<IAppointment | null> => {
     const updatedAppointment = await AppointmentModel.findByIdAndUpdate(
       id,
       { status },
@@ -91,7 +130,10 @@ class AppointmentService {
         professionalName: (updatedAppointment.professionalId as any).name,
       };
 
-      await sendCancellationEmail(updatedAppointment.customerEmail, appointmentDetails);
+      await sendCancellationEmail(
+        updatedAppointment.customerEmail,
+        appointmentDetails
+      );
     }
 
     return updatedAppointment;
@@ -107,26 +149,33 @@ class AppointmentService {
       const [salonEndHour, salonEndMinute] = end.split(":").map(Number);
 
       return (
-        (startHour > salonStartHour || (startHour === salonStartHour && startMinute >= salonStartMinute)) &&
-        (endHour < salonEndHour || (endHour === salonEndHour && endMinute <= salonEndMinute))
+        (startHour > salonStartHour ||
+          (startHour === salonStartHour && startMinute >= salonStartMinute)) &&
+        (endHour < salonEndHour ||
+          (endHour === salonEndHour && endMinute <= salonEndMinute))
       );
     });
   }
 
-  private hasTimeConflict(appointments: IAppointment[], newStartTime: string, duration: number): boolean {
+  private hasTimeConflict(
+    appointments: IAppointment[],
+    newStartTime: string,
+    duration: number
+  ): boolean {
     const newEndTime = this.addMinutesToTime(newStartTime, duration);
 
     return appointments.some((appointment) => {
       const appointmentStartTime = appointment.time;
-      const appointmentEndTime = this.addMinutesToTime(appointmentStartTime, duration);
+      const appointmentEndTime = this.addMinutesToTime(
+        appointmentStartTime,
+        duration
+      );
 
       return !(
-        newEndTime <= appointmentStartTime ||
-        newStartTime >= appointmentEndTime 
+        newEndTime <= appointmentStartTime || newStartTime >= appointmentEndTime
       );
     });
   }
-
 
   private addMinutesToTime(time: string, minutesToAdd: number): string {
     const [hour, minute] = time.split(":").map(Number);

@@ -11,14 +11,24 @@ export const sendConfirmationEmail = async (
     time: string;
     serviceName: string;
     professionalName: string;
+    cancelLink: string;
   }
 ): Promise<void> => {
-  const { date, time, serviceName, professionalName } = appointmentDetails;
+  const { date, time, serviceName, professionalName, cancelLink } = appointmentDetails;
   const subject = "Confirmação de Agendamento - Sattis Studio";
   const text = `Olá,
 Seu agendamento foi confirmado para o dia ${date} às ${time}.
 Serviço: ${serviceName}
-Profissional: ${professionalName}`;
+Profissional: ${professionalName}
+
+Se precisar cancelar, clique no link abaixo:
+${cancelLink}
+
+Atenciosamente,
+Equipe Sattis Studio
+`;
+
+
 
   await resend.emails.send({
     from: "Sattis Studio <update@sattis.me>",
