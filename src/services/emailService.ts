@@ -155,7 +155,6 @@ export const sendConfirmationEmail = async (
         </p>
     </div>
     <p>
-      O pagamento deverá ser realizado em dinheiro.<br> 
       Para mais informações ou dúvidas, estamos à disposição!
     </p>
     <br>
