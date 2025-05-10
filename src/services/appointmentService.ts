@@ -12,177 +12,226 @@ const SALON_HOURS = [
   { start: "09:30", end: "12:30" },
   { start: "14:30", end: "19:00" },
 ];
+const STEP_MINUTES = 15;
 
 class AppointmentService {
+  // Retorna todos os agendamentos
   getAll = async (): Promise<IAppointment[]> => {
-    return await AppointmentModel.find().populate("serviceId professionalId");
+    return AppointmentModel.find().populate("serviceId professionalId");
   };
 
+  // Retorna um agendamento por ID
   getById = async (id: string): Promise<IAppointment | null> => {
-    return await AppointmentModel.findById(id).populate(
-      "serviceId professionalId"
-    );
+    return AppointmentModel.findById(id).populate("serviceId professionalId");
   };
 
-  create = async (appointmentData: IAppointment): Promise<IAppointment> => {
-    const { serviceId, professionalId, date, time } = appointmentData;
+  // Cria um novo agendamento
+  create = async (data: IAppointment): Promise<IAppointment> => {
+    const { serviceId, professionalId, date, time, customerEmail, customerName } = data;
 
+    // Verifica existência e duração do serviço
     const service = await ServiceModel.findById(serviceId);
-    if (!service) {
-      throw new Error("Service not found.");
-    }
-
+    if (!service) throw new Error("Service not found.");
     const duration = service.duration;
 
+    // Verifica se o horário cabe no funcionamento
     if (!this.isWithinSalonHours(time, duration)) {
       throw new Error("Selected time is outside of salon working hours.");
     }
 
-    const existingAppointments = await AppointmentModel.find({
+    // Busca agendamentos confirmados do profissional nesse dia
+    const existing = await AppointmentModel.find({
       professionalId: new Types.ObjectId(professionalId),
       date,
       status: "CONFIRMED",
-    });
+    }).populate("serviceId");
 
-    if (this.hasTimeConflict(existingAppointments, time, duration)) {
+    // Verifica conflito de horários
+    if (this.hasTimeConflict(existing, time, duration)) {
       throw new Error("Professional is already booked for this time.");
     }
 
+    // Verifica existência do profissional
     const professional = await ProfessionalModel.findById(professionalId);
-    if (!professional) {
-      throw new Error("Professional not found.");
-    }
+    if (!professional) throw new Error("Professional not found.");
 
-    const newAppointment = await AppointmentModel.create(appointmentData);
+    // Cria e salva o agendamento
+    const appointment = await AppointmentModel.create(data);
+    appointment.cancelToken = new Types.ObjectId();
+    await appointment.save();
 
-    const cancelToken = new Types.ObjectId();
-    newAppointment.cancelToken = cancelToken;
-    await newAppointment.save();
-
-    const cancelLink = `https://sattis.me/cancel/${cancelToken}`;
-
-    const appointmentDetails = {
+    // Prepara envio de emails
+    const cancelLink = `https://sattis.me/cancel/${appointment.cancelToken}`;
+    const details = {
       date,
       time,
       serviceName: service.name,
       professionalName: professional.name,
-      cancelLink, 
+      cancelLink,
     };
+    await sendConfirmationEmail(customerEmail, details);
+    await sendAdminNotificationEmail({ customerName, ...details });
 
-    await sendConfirmationEmail(
-      appointmentData.customerEmail,
-      appointmentDetails
-    );
-
-    await sendAdminNotificationEmail({
-      customerName: appointmentData.customerName,
-      ...appointmentDetails,
-    });
-
-    return newAppointment;
-  };
-
-  getByCancelToken = async (token: string): Promise<IAppointment | null> => {
-    return await AppointmentModel.findOne({ cancelToken: token }).populate("serviceId professionalId");
-  };
-  
-  cancelByToken = async (token: string): Promise<IAppointment | null> => {
-    const appointment = await AppointmentModel.findOneAndUpdate(
-      { cancelToken: token, status: "CONFIRMED" },
-      { status: "CANCELED" },
-      { new: true }
-    ).populate("serviceId professionalId");
-  
-    if (!appointment) return null;
-  
-    const appointmentDetails = {
-      date: appointment.date,
-      time: appointment.time,
-      serviceName: (appointment.serviceId as any).name,
-      professionalName: (appointment.professionalId as any).name,
-    };
-  
-    await sendCancellationEmail(appointment.customerEmail, appointmentDetails);
-  
     return appointment;
   };
-  
 
-  updateStatus = async (
-    id: string,
-    status: string
-  ): Promise<IAppointment | null> => {
-    const updatedAppointment = await AppointmentModel.findByIdAndUpdate(
+  // Atualiza status (CANCELED ou FINISHED)
+  updateStatus = async (id: string, status: string): Promise<IAppointment | null> => {
+    const updated = await AppointmentModel.findByIdAndUpdate(
       id,
       { status },
       { new: true }
     ).populate("serviceId professionalId");
-
-    if (!updatedAppointment) {
-      return null;
-    }
+    if (!updated) return null;
 
     if (status === "CANCELED") {
-      const appointmentDetails = {
-        date: updatedAppointment.date,
-        time: updatedAppointment.time,
-        serviceName: (updatedAppointment.serviceId as any).name,
-        professionalName: (updatedAppointment.professionalId as any).name,
+      const details = {
+        date: updated.date,
+        time: updated.time,
+        serviceName: (updated.serviceId as any).name,
+        professionalName: (updated.professionalId as any).name,
       };
-
-      await sendCancellationEmail(
-        updatedAppointment.customerEmail,
-        appointmentDetails
-      );
+      await sendCancellationEmail(updated.customerEmail, details);
     }
-
-    return updatedAppointment;
+    return updated;
   };
 
+  // Retorna agendamento por token de cancelamento
+  getByCancelToken = async (token: string): Promise<IAppointment | null> => {
+    return AppointmentModel.findOne({ cancelToken: token }).populate(
+      "serviceId professionalId"
+    );
+  };
+
+  // Cancela agendamento por token
+  cancelByToken = async (token: string): Promise<IAppointment | null> => {
+    const appt = await AppointmentModel.findOneAndUpdate(
+      { cancelToken: token, status: "CONFIRMED" },
+      { status: "CANCELED" },
+      { new: true }
+    ).populate("serviceId professionalId");
+    if (!appt) return null;
+
+    const details = {
+      date: appt.date,
+      time: appt.time,
+      serviceName: (appt.serviceId as any).name,
+      professionalName: (appt.professionalId as any).name,
+    };
+    await sendCancellationEmail(appt.customerEmail, details);
+    return appt;
+  };
+
+  /**
+   * Computa slots disponíveis para um profissional e serviço em um dia,
+   * respeitando duração dos serviços agendados, intervalo mínimo e horários do salão.
+   */
+  computeAvailableSlots = async (
+    professionalId: string,
+    serviceId: string,
+    date: string
+  ): Promise<string[]> => {
+    // Duração do serviço a agendar
+    const service = await ServiceModel.findById(serviceId);
+    if (!service) throw new Error("Service not found");
+    const duration = service.duration;
+
+    // Agendamentos confirmados do profissional nesse dia
+    const apps = await AppointmentModel.find({
+      professionalId: new Types.ObjectId(professionalId),
+      date,
+      status: "CONFIRMED",
+    }).populate("serviceId");
+
+    // Constrói intervalos ocupados
+    const busy = apps
+      .map((appt) => {
+        const d = (appt.serviceId as any).duration as number;
+        const start = this.toMinutes(appt.time);
+        return { start, end: start + d };
+      })
+      .sort((a, b) => a.start - b.start);
+
+    const slots: string[] = [];
+
+    // Para cada período de funcionamento
+    for (const period of SALON_HOURS) {
+      const blockStart = this.toMinutes(period.start);
+      const blockEnd = this.toMinutes(period.end);
+      let cursor = blockStart;
+
+      // Filtra ocupações neste bloco
+      const blockBusy = busy
+        .filter((i) => i.end > blockStart && i.start < blockEnd)
+        .map((i) => ({
+          start: Math.max(i.start, blockStart),
+          end: Math.min(i.end, blockEnd),
+        }));
+
+      // Gera slots antes, entre e depois dos intervalos
+      for (const iv of blockBusy) {
+        this.pushSlots(cursor, iv.start, duration, slots);
+        cursor = iv.end + STEP_MINUTES;
+      }
+      this.pushSlots(cursor, blockEnd, duration, slots);
+    }
+
+    // Remove duplicatas e ordena
+    return Array.from(new Set(slots)).sort((a, b) =>
+      this.toMinutes(a) - this.toMinutes(b)
+    );
+  };
+
+  // Gera slots entre gapStart e gapEnd com step de STEP_MINUTES
+  private pushSlots(
+    gapStart: number,
+    gapEnd: number,
+    duration: number,
+    slots: string[]
+  ) {
+    let cursor = gapStart;
+    while (cursor + duration <= gapEnd) {
+      slots.push(this.toTimeString(cursor));
+      cursor += STEP_MINUTES;
+    }
+  }
+
   private isWithinSalonHours(startTime: string, duration: number): boolean {
-    const [startHour, startMinute] = startTime.split(":").map(Number);
-    const endTime = this.addMinutesToTime(startTime, duration);
-    const [endHour, endMinute] = endTime.split(":").map(Number);
-
-    return SALON_HOURS.some(({ start, end }) => {
-      const [salonStartHour, salonStartMinute] = start.split(":").map(Number);
-      const [salonEndHour, salonEndMinute] = end.split(":").map(Number);
-
-      return (
-        (startHour > salonStartHour ||
-          (startHour === salonStartHour && startMinute >= salonStartMinute)) &&
-        (endHour < salonEndHour ||
-          (endHour === salonEndHour && endMinute <= salonEndMinute))
-      );
+    const start = this.toMinutes(startTime);
+    const end = start + duration;
+    return SALON_HOURS.some(({ start: s, end: e }) => {
+      const sMin = this.toMinutes(s);
+      const eMin = this.toMinutes(e);
+      return start >= sMin && end <= eMin;
     });
   }
 
   private hasTimeConflict(
-    appointments: IAppointment[],
-    newStartTime: string,
-    duration: number
+    appts: IAppointment[],
+    newTime: string,
+    newDur: number
   ): boolean {
-    const newEndTime = this.addMinutesToTime(newStartTime, duration);
-
-    return appointments.some((appointment) => {
-      const appointmentStartTime = appointment.time;
-      const appointmentEndTime = this.addMinutesToTime(
-        appointmentStartTime,
-        duration
-      );
-
-      return !(
-        newEndTime <= appointmentStartTime || newStartTime >= appointmentEndTime
-      );
+    const start = this.toMinutes(newTime);
+    const end = start + newDur;
+    return appts.some((appt) => {
+      const d = (appt.serviceId as any).duration as number;
+      const s = this.toMinutes(appt.time);
+      const e = s + d;
+      return !(end <= s || start >= e);
     });
   }
 
-  private addMinutesToTime(time: string, minutesToAdd: number): string {
-    const [hour, minute] = time.split(":").map(Number);
-    const date = new Date();
-    date.setHours(hour);
-    date.setMinutes(minute + minutesToAdd);
-    return date.toTimeString().slice(0, 5);
+  private toMinutes(time: string): number {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  private toTimeString(mins: number): string {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}`;
   }
 }
 

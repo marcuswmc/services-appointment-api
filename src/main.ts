@@ -7,6 +7,7 @@ import servicesRoutes from'./routers/servicesRoutes'
 import professionalRoutes from'./routers/professionalRoutes'
 import appointmentRoutes from'./routers/appointmentRoutes'
 import categoryRoutes from './routers/categoryRoutes';
+import availabilityRoutes from './routers/availabilityRoutes';
 
 
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ app.use('/api', appointmentRoutes);
 app.use('/api', servicesRoutes);
 app.use('/api', professionalRoutes);
 app.use('/api', categoryRoutes);
+app.use('/api', availabilityRoutes);
 
 const connectDB = async () => {
   try {
