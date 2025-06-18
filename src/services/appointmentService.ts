@@ -12,24 +12,19 @@ const SALON_HOURS = [
   { start: "09:30", end: "12:30" },
   { start: "14:30", end: "19:00" },
 ];
-const STEP_MINUTES = 15;
 
 class AppointmentService {
-  // Retorna todos os agendamentos
   getAll = async (): Promise<IAppointment[]> => {
     return AppointmentModel.find().populate("serviceId professionalId");
   };
 
-  // Retorna um agendamento por ID
   getById = async (id: string): Promise<IAppointment | null> => {
     return AppointmentModel.findById(id).populate("serviceId professionalId");
   };
 
-  // Cria um novo agendamento
   create = async (data: IAppointment): Promise<IAppointment> => {
     const { serviceId, professionalId, date, time, customerEmail, customerName } = data;
 
-    // Verifica existência e duração do serviço
     const service = await ServiceModel.findById(serviceId);
     if (!service) throw new Error("Service not found.");
     const duration = service.duration;
@@ -124,7 +119,9 @@ class AppointmentService {
 
   /**
    * Computa slots disponíveis para um profissional e serviço em um dia,
-   * respeitando duração dos serviços agendados, intervalo mínimo e horários do salão.
+   * respeitando duração dos serviços agendados e horários do salão.
+   * Os slots são gerados com intervalo igual à duração do serviço solicitado.
+   * Permite agendamento até o horário final de funcionamento, independente da duração.
    */
   computeAvailableSlots = async (
     professionalId: string,
@@ -171,7 +168,7 @@ class AppointmentService {
       // Gera slots antes, entre e depois dos intervalos
       for (const iv of blockBusy) {
         this.pushSlots(cursor, iv.start, duration, slots);
-        cursor = iv.end + STEP_MINUTES;
+        cursor = iv.end; // Removido o STEP_MINUTES, agora vai direto para o final
       }
       this.pushSlots(cursor, blockEnd, duration, slots);
     }
@@ -182,7 +179,8 @@ class AppointmentService {
     );
   };
 
-  // Gera slots entre gapStart e gapEnd com step de STEP_MINUTES
+  // Gera slots entre gapStart e gapEnd, avançando pela duração do serviço
+  // Permite agendamento até o horário final de funcionamento
   private pushSlots(
     gapStart: number,
     gapEnd: number,
@@ -190,9 +188,9 @@ class AppointmentService {
     slots: string[]
   ) {
     let cursor = gapStart;
-    while (cursor + duration <= gapEnd) {
+    while (cursor <= gapEnd) {
       slots.push(this.toTimeString(cursor));
-      cursor += STEP_MINUTES;
+      cursor += duration;
     }
   }
 

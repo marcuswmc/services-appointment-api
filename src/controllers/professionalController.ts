@@ -29,7 +29,7 @@ class ProfessionalController {
 
       const newProfessional = await ProfessionalService.create({
         name,
-         services: Array.isArray(services) ? services : [services],
+        services,
         image,
       } as any);
 
@@ -53,7 +53,7 @@ class ProfessionalController {
       );
 
       if (!updatedProfessional)
-         res.status(404).json({ message: "Professional not found" });
+       res.status(404).json({ message: "Professional not found" });
 
       res.json(updatedProfessional);
     } catch (error) {
