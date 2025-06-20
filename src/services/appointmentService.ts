@@ -1,3 +1,5 @@
+// Atualizado: appointmentService.ts
+
 import AppointmentModel, { IAppointment } from "../models/appointmentModel";
 import ServiceModel from "../models/servicesModel";
 import ProfessionalModel from "../models/professionalModel";
@@ -6,6 +8,7 @@ import {
   sendConfirmationEmail,
   sendAdminNotificationEmail,
   sendCancellationEmail,
+  sendFailedBookingEmail,
 } from "../services/emailService";
 
 const SALON_HOURS = [
@@ -29,33 +32,43 @@ class AppointmentService {
     if (!service) throw new Error("Service not found.");
     const duration = service.duration;
 
-    // Verifica se o horário cabe no funcionamento
     if (!this.isWithinSalonHours(time, duration)) {
       throw new Error("Selected time is outside of salon working hours.");
     }
 
-    // Busca agendamentos confirmados do profissional nesse dia
     const existing = await AppointmentModel.find({
       professionalId: new Types.ObjectId(professionalId),
       date,
       status: "CONFIRMED",
     }).populate("serviceId");
 
-    // Verifica conflito de horários
     if (this.hasTimeConflict(existing, time, duration)) {
       throw new Error("Professional is already booked for this time.");
     }
 
-    // Verifica existência do profissional
     const professional = await ProfessionalModel.findById(professionalId);
     if (!professional) throw new Error("Professional not found.");
 
-    // Cria e salva o agendamento
+    // Verificação final antes de salvar
+    const updatedExisting = await AppointmentModel.find({
+      professionalId: new Types.ObjectId(professionalId),
+      date,
+      status: "CONFIRMED",
+    }).populate("serviceId");
+
+    if (this.hasTimeConflict(updatedExisting, time, duration)) {
+      await sendFailedBookingEmail(customerEmail, {
+        date,
+        time,
+        professionalName: professional.name,
+      });
+      throw new Error("Time slot has been taken while processing. User notified via email.");
+    }
+
     const appointment = await AppointmentModel.create(data);
     appointment.cancelToken = new Types.ObjectId();
     await appointment.save();
 
-    // Prepara envio de emails
     const cancelLink = `https://sattis.me/cancel/${appointment.cancelToken}`;
     const details = {
       date,
@@ -70,7 +83,6 @@ class AppointmentService {
     return appointment;
   };
 
-  // Atualiza status (CANCELED ou FINISHED)
   updateStatus = async (id: string, status: string): Promise<IAppointment | null> => {
     const updated = await AppointmentModel.findByIdAndUpdate(
       id,
@@ -91,14 +103,12 @@ class AppointmentService {
     return updated;
   };
 
-  // Retorna agendamento por token de cancelamento
   getByCancelToken = async (token: string): Promise<IAppointment | null> => {
     return AppointmentModel.findOne({ cancelToken: token }).populate(
       "serviceId professionalId"
     );
   };
 
-  // Cancela agendamento por token
   cancelByToken = async (token: string): Promise<IAppointment | null> => {
     const appt = await AppointmentModel.findOneAndUpdate(
       { cancelToken: token, status: "CONFIRMED" },
@@ -117,30 +127,21 @@ class AppointmentService {
     return appt;
   };
 
-  /**
-   * Computa slots disponíveis para um profissional e serviço em um dia,
-   * respeitando duração dos serviços agendados e horários do salão.
-   * Os slots são gerados com intervalo igual à duração do serviço solicitado.
-   * Permite agendamento até o horário final de funcionamento, independente da duração.
-   */
   computeAvailableSlots = async (
     professionalId: string,
     serviceId: string,
     date: string
   ): Promise<string[]> => {
-    // Duração do serviço a agendar
     const service = await ServiceModel.findById(serviceId);
     if (!service) throw new Error("Service not found");
     const duration = service.duration;
 
-    // Agendamentos confirmados do profissional nesse dia
     const apps = await AppointmentModel.find({
       professionalId: new Types.ObjectId(professionalId),
       date,
       status: "CONFIRMED",
     }).populate("serviceId");
 
-    // Constrói intervalos ocupados
     const busy = apps
       .map((appt) => {
         const d = (appt.serviceId as any).duration as number;
@@ -151,37 +152,42 @@ class AppointmentService {
 
     const slots: string[] = [];
 
-    // Para cada período de funcionamento
     for (const period of SALON_HOURS) {
       const blockStart = this.toMinutes(period.start);
       const blockEnd = this.toMinutes(period.end);
       let cursor = blockStart;
 
-      // Filtra ocupações neste bloco
       const blockBusy = busy
-        .filter((i) => i.end > blockStart && i.start < blockEnd)
+        .filter((i) => i.start < blockEnd && i.end > blockStart)
         .map((i) => ({
           start: Math.max(i.start, blockStart),
           end: Math.min(i.end, blockEnd),
         }));
 
-      // Gera slots antes, entre e depois dos intervalos
       for (const iv of blockBusy) {
         this.pushSlots(cursor, iv.start, duration, slots);
-        cursor = iv.end; // Removido o STEP_MINUTES, agora vai direto para o final
+        cursor = iv.end;
       }
-      this.pushSlots(cursor, blockEnd, duration, slots);
+      this.pushSlotsIncludingEnd(cursor, blockEnd, duration, slots);
     }
 
-    // Remove duplicatas e ordena
-    return Array.from(new Set(slots)).sort((a, b) =>
+    const finalSlots = Array.from(new Set(slots)).sort((a, b) =>
       this.toMinutes(a) - this.toMinutes(b)
     );
+    return finalSlots;
   };
 
-  // Gera slots entre gapStart e gapEnd, avançando pela duração do serviço
-  // Permite agendamento até o horário final de funcionamento
-  private pushSlots(
+  private pushSlots(gapStart: number, gapEnd: number, duration: number, slots: string[]) {
+    let cursor = gapStart;
+    while (cursor < gapEnd) {
+      if (cursor + duration <= gapEnd) {
+        slots.push(this.toTimeString(cursor));
+      }
+      cursor += duration;
+    }
+  }
+
+  private pushSlotsIncludingEnd(
     gapStart: number,
     gapEnd: number,
     duration: number,
@@ -196,11 +202,10 @@ class AppointmentService {
 
   private isWithinSalonHours(startTime: string, duration: number): boolean {
     const start = this.toMinutes(startTime);
-    const end = start + duration;
     return SALON_HOURS.some(({ start: s, end: e }) => {
       const sMin = this.toMinutes(s);
       const eMin = this.toMinutes(e);
-      return start >= sMin && end <= eMin;
+      return start >= sMin && start <= eMin;
     });
   }
 
@@ -220,16 +225,14 @@ class AppointmentService {
   }
 
   private toMinutes(time: string): number {
-    const [h, m] = time.split(":").map(Number);
+    const [h, m] = time.split(":" ).map(Number);
     return h * 60 + m;
   }
 
   private toTimeString(mins: number): string {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    return `${h.toString().padStart(2, "0")}:${m
-      .toString()
-      .padStart(2, "0")}`;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   }
 }
 

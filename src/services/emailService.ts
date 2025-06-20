@@ -174,6 +174,33 @@ export const sendConfirmationEmail = async (
   });
 };
 
+export const sendFailedBookingEmail = async (
+  to: string,
+  {
+    date,
+    time,
+    professionalName,
+  }: { date: string; time: string; professionalName: string }
+) => {
+  const subject = "Não foi possível concluir sua marcação";
+  const html = `
+    <p>Olá,</p>
+    <p>Lamentamos, mas não foi possível concluir sua marcação para o dia <strong>${date}</strong> às <strong>${time}</strong> com <strong>${professionalName}</strong>.</p>
+    <p>Esse horário já foi reservado por outro cliente.</p>
+    <p>Podes verificar os horários disponíveis e reagendar pelo nosso website:</p>
+    <p><a href="https://sattis.me">https://sattis.me</a></p>
+    <br/>
+    <p>Atenciosamente,<br/>Equipa Sattis</p>
+  `;
+
+  await resend.emails.send({
+    from: "Sattis Studio <update@sattis.me>",
+    to,
+    subject,
+    html,
+  });
+};
+
 export const sendCancellationEmail = async (
   to: string,
   appointmentDetails: {
