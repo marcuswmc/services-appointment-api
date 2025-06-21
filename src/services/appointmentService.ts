@@ -1,5 +1,3 @@
-// Atualizado: appointmentService.ts
-
 import AppointmentModel, { IAppointment } from "../models/appointmentModel";
 import ServiceModel from "../models/servicesModel";
 import ProfessionalModel from "../models/professionalModel";
@@ -11,9 +9,9 @@ import {
   sendFailedBookingEmail,
 } from "../services/emailService";
 
-const SALON_HOURS = [
+const AVAILABLE_APPOINTMENT_SLOTS = [
   { start: "09:30", end: "12:30" },
-  { start: "14:30", end: "19:00" },
+  { start: "14:30", end: "19:45" },
 ];
 
 class AppointmentService {
@@ -32,8 +30,8 @@ class AppointmentService {
     if (!service) throw new Error("Service not found.");
     const duration = service.duration;
 
-    if (!this.isWithinSalonHours(time, duration)) {
-      throw new Error("Selected time is outside of salon working hours.");
+    if (!this.isWithinAppointmentHours(time, duration)) {
+      throw new Error("Selected time is outside of available appointment hours.");
     }
 
     const existing = await AppointmentModel.find({
@@ -49,7 +47,6 @@ class AppointmentService {
     const professional = await ProfessionalModel.findById(professionalId);
     if (!professional) throw new Error("Professional not found.");
 
-    // Verificação final antes de salvar
     const updatedExisting = await AppointmentModel.find({
       professionalId: new Types.ObjectId(professionalId),
       date,
@@ -77,18 +74,23 @@ class AppointmentService {
       professionalName: professional.name,
       cancelLink,
     };
+
     await sendConfirmationEmail(customerEmail, details);
     await sendAdminNotificationEmail({ customerName, ...details });
 
     return appointment;
   };
 
-  updateStatus = async (id: string, status: string): Promise<IAppointment | null> => {
+  updateStatus = async (
+    id: string,
+    status: string
+  ): Promise<IAppointment | null> => {
     const updated = await AppointmentModel.findByIdAndUpdate(
       id,
       { status },
       { new: true }
     ).populate("serviceId professionalId");
+
     if (!updated) return null;
 
     if (status === "CANCELED") {
@@ -100,13 +102,12 @@ class AppointmentService {
       };
       await sendCancellationEmail(updated.customerEmail, details);
     }
+
     return updated;
   };
 
   getByCancelToken = async (token: string): Promise<IAppointment | null> => {
-    return AppointmentModel.findOne({ cancelToken: token }).populate(
-      "serviceId professionalId"
-    );
+    return AppointmentModel.findOne({ cancelToken: token }).populate("serviceId professionalId");
   };
 
   cancelByToken = async (token: string): Promise<IAppointment | null> => {
@@ -115,6 +116,7 @@ class AppointmentService {
       { status: "CANCELED" },
       { new: true }
     ).populate("serviceId professionalId");
+
     if (!appt) return null;
 
     const details = {
@@ -152,36 +154,55 @@ class AppointmentService {
 
     const slots: string[] = [];
 
-    for (const period of SALON_HOURS) {
+    for (const period of AVAILABLE_APPOINTMENT_SLOTS) {
       const blockStart = this.toMinutes(period.start);
       const blockEnd = this.toMinutes(period.end);
+      const lastPossibleStart = this.getLastPossibleStartTime(blockEnd, duration);
+      const effectiveBlockEnd = Math.min(blockEnd, lastPossibleStart);
+
       let cursor = blockStart;
 
-      const blockBusy = busy
-        .filter((i) => i.start < blockEnd && i.end > blockStart)
-        .map((i) => ({
-          start: Math.max(i.start, blockStart),
-          end: Math.min(i.end, blockEnd),
-        }));
+      const blockBusy = busy.filter(i => i.start < blockEnd && i.end > blockStart);
 
       for (const iv of blockBusy) {
-        this.pushSlots(cursor, iv.start, duration, slots);
+        this.pushSlots(cursor, iv.start, duration, slots, blockBusy, effectiveBlockEnd, apps);
         cursor = iv.end;
       }
-      this.pushSlotsIncludingEnd(cursor, blockEnd, duration, slots);
+
+      this.pushSlotsIncludingEnd(cursor, effectiveBlockEnd, duration, slots, blockBusy, apps);
     }
 
-    const finalSlots = Array.from(new Set(slots)).sort((a, b) =>
-      this.toMinutes(a) - this.toMinutes(b)
+    return Array.from(new Set(slots)).sort(
+      (a, b) => this.toMinutes(a) - this.toMinutes(b)
     );
-    return finalSlots;
   };
 
-  private pushSlots(gapStart: number, gapEnd: number, duration: number, slots: string[]) {
+  private getLastPossibleStartTime(blockEnd: number, duration: number): number {
+    if (duration === 45) return this.toMinutes("19:45");
+    if (duration === 60) return this.toMinutes("19:30");
+    if (duration < 45) return this.toMinutes("19:30");
+    return this.toMinutes("19:30");
+  }
+
+  private pushSlots(
+    gapStart: number,
+    gapEnd: number,
+    duration: number,
+    slots: string[],
+    busy: { start: number; end: number }[],
+    maxEnd: number,
+    existingAppointments: IAppointment[]
+  ) {
     let cursor = gapStart;
-    while (cursor < gapEnd) {
-      if (cursor + duration <= gapEnd) {
-        slots.push(this.toTimeString(cursor));
+    const effectiveEnd = Math.min(gapEnd, maxEnd);
+
+    while (cursor <= effectiveEnd) {
+      const timeStr = this.toTimeString(cursor);
+      if (
+        this.isSlotAvailable(cursor, duration, busy) &&
+        !this.hasTimeConflict(existingAppointments, timeStr, duration)
+      ) {
+        slots.push(timeStr);
       }
       cursor += duration;
     }
@@ -191,22 +212,21 @@ class AppointmentService {
     gapStart: number,
     gapEnd: number,
     duration: number,
-    slots: string[]
+    slots: string[],
+    busy: { start: number; end: number }[],
+    existingAppointments: IAppointment[]
   ) {
     let cursor = gapStart;
     while (cursor <= gapEnd) {
-      slots.push(this.toTimeString(cursor));
+      const timeStr = this.toTimeString(cursor);
+      if (
+        this.isSlotAvailable(cursor, duration, busy) &&
+        !this.hasTimeConflict(existingAppointments, timeStr, duration)
+      ) {
+        slots.push(timeStr);
+      }
       cursor += duration;
     }
-  }
-
-  private isWithinSalonHours(startTime: string, duration: number): boolean {
-    const start = this.toMinutes(startTime);
-    return SALON_HOURS.some(({ start: s, end: e }) => {
-      const sMin = this.toMinutes(s);
-      const eMin = this.toMinutes(e);
-      return start >= sMin && start <= eMin;
-    });
   }
 
   private hasTimeConflict(
@@ -224,8 +244,40 @@ class AppointmentService {
     });
   }
 
+  private isSlotAvailable(
+    start: number,
+    duration: number,
+    busy: { start: number; end: number }[]
+  ): boolean {
+    const end = start + duration;
+    return !busy.some(({ start: bStart, end: bEnd }) => !(end <= bStart || start >= bEnd));
+  }
+
+  private isWithinAppointmentHours(startTime: string, duration: number): boolean {
+    const start = this.toMinutes(startTime);
+    return AVAILABLE_APPOINTMENT_SLOTS.some(({ start: s, end: e }) => {
+      const sMin = this.toMinutes(s);
+      const eMin = this.toMinutes(e);
+
+      if (start < sMin) return false;
+
+      if (sMin === this.toMinutes("14:30")) {
+        if (duration === 45 && start > this.toMinutes("19:45")) return false;
+        if (duration === 60 && start > this.toMinutes("19:30")) return false;
+        if (duration < 45 && start > this.toMinutes("19:30")) return false;
+        if (duration > 60 && start > this.toMinutes("19:30")) return false;
+      }
+
+      if (sMin === this.toMinutes("09:30") && start > this.toMinutes("12:30")) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
   private toMinutes(time: string): number {
-    const [h, m] = time.split(":" ).map(Number);
+    const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
   }
 
