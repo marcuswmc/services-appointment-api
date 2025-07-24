@@ -44,7 +44,7 @@ class AppointmentController {
       const { status } = req.body;
       const { id } = req.params;
   
-      if (!["CANCELED", "FINISHED"].includes(status)) {
+      if (!["CANCELED", "FINISHED", "MISSED"].includes(status)) {
          res.status(400).json({ message: "Invalid status" });
       }
   
