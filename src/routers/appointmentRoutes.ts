@@ -11,6 +11,8 @@ router.patch("/appointment/:id", AppointmentController.updateStatus);
 router.get("/appointment/cancel/:token", AppointmentController.cancelByToken);
 router.post("/appointment/cancel/confirm/:token", AppointmentController.confirmCancelByToken);
 router.get("/appointments/missed/:email", AppointmentController.getMissedByEmail);
+router.patch("/appointment/toggle-missed/:id", AppointmentController.toggleMissedFlag);
+router.patch("/appointments/reset-missed-count/:customerEmail", AppointmentController.toggleMissedFlag);
 
 
 

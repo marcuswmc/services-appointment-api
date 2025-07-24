@@ -106,12 +106,34 @@ class AppointmentService {
     return updated;
   };
 
-  countMissedAppointmentsByEmail = async (customerEmail: string): Promise<number> => {
-    return AppointmentModel.countDocuments({
-      customerEmail: customerEmail,
-      status: "MISSED",
-    });
+  toggleMissedFlag = async (
+    id: string,
+    isMissed: boolean
+  ): Promise<IAppointment | null> => {
+    const updated = await AppointmentModel.findByIdAndUpdate(
+      id,
+      { isMissed: isMissed },
+      { new: true }
+    ).populate("serviceId professionalId");
+    return updated;
   };
+
+  countMissedAppointmentsByEmail = async (email: string): Promise<number> => {
+    const count = await AppointmentModel.countDocuments({
+      customerEmail: email,
+      isMissed: true,
+    });
+    return count;
+  };
+
+  resetMissedCount = async (customerEmail: string): Promise<number> => {
+    const result = await AppointmentModel.updateMany(
+      { customerEmail: customerEmail, isMissed: true },
+      { isMissed: false }
+    );
+    return result.modifiedCount;
+  };
+
 
   getByCancelToken = async (token: string): Promise<IAppointment | null> => {
     return AppointmentModel.findOne({ cancelToken: token }).populate("serviceId professionalId");
