@@ -106,6 +106,13 @@ class AppointmentService {
     return updated;
   };
 
+  countMissedAppointmentsByEmail = async (customerEmail: string): Promise<number> => {
+    return AppointmentModel.countDocuments({
+      customerEmail: customerEmail,
+      status: "MISSED",
+    });
+  };
+
   getByCancelToken = async (token: string): Promise<IAppointment | null> => {
     return AppointmentModel.findOne({ cancelToken: token }).populate("serviceId professionalId");
   };
@@ -176,6 +183,8 @@ class AppointmentService {
       (a, b) => this.toMinutes(a) - this.toMinutes(b)
     );
   };
+
+
 
   private getLastPossibleStartTime(blockEnd: number, duration: number): number {
     if (duration === 45) return this.toMinutes("19:45");

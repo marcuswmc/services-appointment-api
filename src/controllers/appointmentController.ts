@@ -99,8 +99,17 @@ class AppointmentController {
       res.status(500).json({ message: "Failed to cancel appointment" });
     }
   };
-  
- 
+
+  getMissedByEmail = async (req: Request, res: Response) => {
+    try {
+      const { email } = req.params;
+      const missedCount = await AppointmentService.countMissedAppointmentsByEmail(email);
+      res.json({ email, missedCount });
+    } catch (error) {
+      console.error("Failed to get missed appointments by email:", error);
+      res.status(500).json({ message: "Failed to get missed appointments count" });
+    }
+  };
   
 }
 

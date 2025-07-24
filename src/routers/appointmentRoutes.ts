@@ -10,6 +10,7 @@ router.post("/appointment/create", AppointmentController.create);
 router.patch("/appointment/:id", AppointmentController.updateStatus);
 router.get("/appointment/cancel/:token", AppointmentController.cancelByToken);
 router.post("/appointment/cancel/confirm/:token", AppointmentController.confirmCancelByToken);
+router.get("/appointments/missed/:email", AppointmentController.getMissedByEmail);
 
 
 
