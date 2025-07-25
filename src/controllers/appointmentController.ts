@@ -113,7 +113,7 @@ class AppointmentController {
 
   toggleMissedFlag = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const { email } = req.params;
       const { isMissed } = req.body;
 
       if (typeof isMissed !== "boolean") {
@@ -123,7 +123,7 @@ class AppointmentController {
       }
 
       const updatedAppointment = await AppointmentService.toggleMissedFlag(
-        id,
+        email,
         isMissed
       );
 
